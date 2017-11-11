@@ -42,7 +42,7 @@ public class MineBuyRequestBuilder {
 		return this;
 	}
 	
-	// Basically "Send"
+	// Basically completing the builder and sending the request (Send)
 	public MineBuyRequest request() {
 		if (url == null) {
 			throw new IllegalArgumentException("URL must not be null");
@@ -62,139 +62,134 @@ public class MineBuyRequestBuilder {
 			throw new IllegalArgumentException("URL or action is malformed: " + e.getMessage());
 		}
 		
-		switch(type) {
-			case POST: return sendPostRequest();
-			case GET: return sendGetRequest();
-			case DELETE: return sendDeleteRequest();
-			case PUT: return sendPutRequest();
-			default: throw new IllegalArgumentException("Type Cannot be Null!");
+		if (url.toString().startsWith("https://")) {
+			return sendHttpsRequest();
+		}else {
+			return sendHttpRequest();
 		}
 	}
 	
-	private MineBuyRequest sendPostRequest() {
+	private MineBuyRequest sendHttpsRequest() {
 		Exception exception;
 		JsonObject response;
+		try {
+			HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
 
-		if (url.toString().startsWith("https://")) {
-
-			try {
-				HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
-
-				connection.setRequestMethod("POST");
+			connection.setRequestMethod(type.toString());
+			if (!type.equals(RequestType.GET))
 				connection.setRequestProperty("Content-Length", Integer.toString(typeString.length()));
-				connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-				connection.setDoOutput(true);
-				connection.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
+			connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			connection.setDoOutput(true);
+			connection.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
 
-				// Initialize output stream
-				DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
+			// Initialize output stream
+			DataOutputStream outputStream = null;
+			if (!type.equals(RequestType.GET)) {
+				outputStream = new DataOutputStream(connection.getOutputStream());
 
 				// Write request
 				outputStream.writeBytes(typeString);
+			}
 
-				// Initialize input stream
-				InputStream inputStream = connection.getInputStream();
+			// Initialize input stream
+			InputStream inputStream = connection.getInputStream();
 
-				// Handle response
-				BufferedReader streamReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
-				StringBuilder responseBuilder = new StringBuilder();
+			// Handle response
+			BufferedReader streamReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+			StringBuilder responseBuilder = new StringBuilder();
 
-				String responseString;
-				while ((responseString = streamReader.readLine()) != null)
-					responseBuilder.append(responseString);
+			String responseString;
+			while ((responseString = streamReader.readLine()) != null)
+				responseBuilder.append(responseString);
 
-				JsonParser parser = new JsonParser();
+			JsonParser parser = new JsonParser();
 
-				response = parser.parse(responseBuilder.toString()).getAsJsonObject();
+			response = parser.parse(responseBuilder.toString()).getAsJsonObject();
 
-				if (response.has("error")) {
-					// Error with request
-					String errorMessage = response.get("message").getAsString();
-					exception = new MineBuyExpection(errorMessage);
-				}
+			if (response.has("error")) {
+				// Error with request
+				String errorMessage = response.get("message").getAsString();
+				exception = new MineBuyExpection(errorMessage);
+			}
 
-				// Close output/input stream
+			// Close output/input stream
+			if (!type.equals(RequestType.GET)) {
 				outputStream.flush();
 				outputStream.close();
-				inputStream.close();
-
-				// Disconnect
-				connection.disconnect();
-
-				exception = null;
-			} catch (Exception e) {
-				exception = e;
-				response = null;
 			}
-		} else {
+			inputStream.close();
 
-			try {
-				HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+			// Disconnect
+			connection.disconnect();
 
-				connection.setRequestMethod("POST");
-				connection.setRequestProperty("Content-Length", Integer.toString(typeString.length()));
-				connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-				connection.setDoOutput(true);
-				connection.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
-
-				// Initialize output stream
-				DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
-
-				// Write request
-				outputStream.writeBytes(typeString);
-
-				// Initialize input stream
-				InputStream inputStream = connection.getInputStream();
-
-				// Handle response
-				BufferedReader streamReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
-				StringBuilder responseBuilder = new StringBuilder();
-
-				String responseString;
-				while ((responseString = streamReader.readLine()) != null)
-					responseBuilder.append(responseString);
-
-				JsonParser parser = new JsonParser();
-
-				response = parser.parse(responseBuilder.toString()).getAsJsonObject();
-
-				if (response.has("error")) {
-					// Error with request
-					String errorMessage = response.get("message").getAsString();
-					exception = new MineBuyExpection(errorMessage);
-				}
-
-				// Close output/input stream
-				outputStream.flush();
-				outputStream.close();
-				inputStream.close();
-
-				// Disconnect
-				connection.disconnect();
-
-				exception = null;
-			} catch (Exception e) {
-				exception = e;
-				response = null;
-			}
+			exception = null;
+		} catch (Exception e) {
+			exception = e;
+			response = null;
 		}
 
 		return new MineBuyRequest(exception, response, type);
 	}
 	
-	private MineBuyRequest sendGetRequest() {
-		// *TODO*
-		return null;
-	}
-	
-	private MineBuyRequest sendPutRequest() {
-		// *TODO*
-		return null;
-	}
-	
-	private MineBuyRequest sendDeleteRequest() {
-		// *TODO*
-		return null;
+	private MineBuyRequest sendHttpRequest() {
+		Exception exception;
+		JsonObject response;
+		try {
+			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+			connection.setRequestMethod("POST");
+			connection.setRequestProperty("Content-Length", Integer.toString(typeString.length()));
+			connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			connection.setDoOutput(true);
+			connection.addRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0)");
+
+			// Initialize output stream
+			DataOutputStream outputStream = null;
+			if (!type.equals(RequestType.GET)) {
+				outputStream = new DataOutputStream(connection.getOutputStream());
+
+				// Write request
+				outputStream.writeBytes(typeString);
+			}
+
+			// Initialize input stream
+			InputStream inputStream = connection.getInputStream();
+
+			// Handle response
+			BufferedReader streamReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+			StringBuilder responseBuilder = new StringBuilder();
+
+			String responseString;
+			while ((responseString = streamReader.readLine()) != null)
+				responseBuilder.append(responseString);
+
+			JsonParser parser = new JsonParser();
+
+			response = parser.parse(responseBuilder.toString()).getAsJsonObject();
+
+			if (response.has("error")) {
+				// Error with request
+				String errorMessage = response.get("message").getAsString();
+				exception = new MineBuyExpection(errorMessage);
+			}
+
+			// Close output/input stream
+			if (!type.equals(RequestType.GET)) {
+				outputStream.flush();
+				outputStream.close();
+			}
+			inputStream.close();
+
+			// Disconnect
+			connection.disconnect();
+
+			exception = null;
+		} catch (Exception e) {
+			exception = e;
+			response = null;
+		}
+
+		return new MineBuyRequest(exception, response, type);
 	}
 	
 	private String appendCharacter(String string, char c) {
